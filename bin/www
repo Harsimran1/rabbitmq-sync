@@ -1,0 +1,40 @@
+#!/usr/bin/env node
+var app = require('../app');
+var amqp = require('amqplib/callback_api');
+
+app.set('port', process.env.PORT || 3000);
+
+amqp.connect('amqp://rabbitmq.babajob.com', function (err, conn) {
+  if (err) {
+    console.log(err) ;
+  }
+  else {
+    connection = conn;
+    console.log('rabbitmq connected');
+  }
+  var typeName =  'Babajob.JobPosts.Domain.JobPost:Babajob.JobPosts.Domain';
+  var options = {
+    type: typeName,
+    correlationId: '',
+    deliveryMode: 2
+  };
+  if (connection !== undefined) {
+    connection.createChannel(function (err, ch) {
+      if(err){
+        console.log(err);
+      }
+      var q = 'EasyNetQ_Default_Error_Queue';
+      ch.assertQueue(q);
+      ch.consume(q, function(msg){
+        var messageToSend = JSON.parse(msg.content.toString()).message;
+        console.log(messageToSend);
+        ch.publish(typeName, '#', new Buffer(messageToSend), options);
+      },{noAck : true });
+    });
+  }
+});
+
+
+var server = app.listen(app.get('port'), function() {
+  console.log('Express server listening on port ' + server.address().port);
+});
